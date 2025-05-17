@@ -48,9 +48,14 @@ const Login = () => {
     try {
       await signInWithGoogle();
       navigate("/dashboard");
-    } catch (error) {
-      // Error is handled in the AuthContext
-      setError("Google sign-in failed. Please try again later.");
+    } catch (error: any) {
+      console.error("Google sign-in error:", error);
+      // More specific error handling based on the screenshot
+      if (error.code === 'auth/unauthorized-domain') {
+        setError("This domain is not authorized for authentication. Please use email login instead.");
+      } else {
+        setError("Google sign-in failed. Please try email login instead.");
+      }
     } finally {
       setGoogleLoading(false);
     }

@@ -1,3 +1,4 @@
+
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { 
   User, 
@@ -130,9 +131,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       googleProvider.addScope('email');
       googleProvider.addScope('profile');
       
-      // You can also get the Google Access Token to access the Google API
-      const credential = GoogleAuthProvider.credentialFromResult(result);
-      
       toast({
         title: "Success",
         description: "Signed in with Google successfully.",
@@ -149,6 +147,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         errorMessage = "An account already exists with the same email address but different sign-in credentials.";
       } else if (error.code === 'auth/invalid-credential') {
         errorMessage = "The authentication credential is invalid. Please try again.";
+      } else if (error.code === 'auth/unauthorized-domain') {
+        errorMessage = "This domain is not authorized for Google authentication. Please use email login.";
       } else if (error.code.includes('api-key')) {
         errorMessage = "Authentication configuration issue. Please contact support.";
       }
