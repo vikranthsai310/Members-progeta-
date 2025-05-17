@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { 
   User, 
@@ -6,7 +5,8 @@ import {
   signInWithEmailAndPassword, 
   signInWithPopup, 
   signOut, 
-  createUserWithEmailAndPassword 
+  createUserWithEmailAndPassword,
+  GoogleAuthProvider
 } from "firebase/auth";
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, googleProvider, db } from "@/lib/firebase";
@@ -125,14 +125,40 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const signInWithGoogle = async () => {
     try {
-      await signInWithPopup(auth, googleProvider);
-    } catch (error) {
+      const result = await signInWithPopup(auth, googleProvider);
+      // Add additional scopes if needed
+      googleProvider.addScope('email');
+      googleProvider.addScope('profile');
+      
+      // You can also get the Google Access Token to access the Google API
+      const credential = GoogleAuthProvider.credentialFromResult(result);
+      
+      toast({
+        title: "Success",
+        description: "Signed in with Google successfully.",
+      });
+    } catch (error: any) {
       console.error("Error signing in with Google:", error);
+      let errorMessage = "Could not sign in with Google. Please try again.";
+      
+      if (error.code === 'auth/popup-blocked') {
+        errorMessage = "Popup was blocked. Please allow popups and try again.";
+      } else if (error.code === 'auth/popup-closed-by-user') {
+        errorMessage = "Sign in was canceled. Please try again.";
+      } else if (error.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = "An account already exists with the same email address but different sign-in credentials.";
+      } else if (error.code === 'auth/invalid-credential') {
+        errorMessage = "The authentication credential is invalid. Please try again.";
+      } else if (error.code.includes('api-key')) {
+        errorMessage = "Authentication configuration issue. Please contact support.";
+      }
+      
       toast({
         title: "Sign In Failed",
-        description: "Could not sign in with Google. Please try again.",
+        description: errorMessage,
         variant: "destructive",
       });
+      throw error;
     }
   };
 

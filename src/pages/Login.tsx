@@ -8,11 +8,15 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/Spinner";
+import { AlertCircle } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [googleLoading, setGoogleLoading] = useState(false);
+  const [error, setError] = useState("");
   const { login, signInWithGoogle, currentUser } = useAuth();
   const navigate = useNavigate();
 
@@ -24,27 +28,31 @@ const Login = () => {
   const handleEmailLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError("");
     
     try {
       await login(email, password);
       navigate("/dashboard");
     } catch (error) {
       // Error is handled in the AuthContext
+      setError("Failed to sign in with email and password");
     } finally {
       setIsLoading(false);
     }
   };
 
   const handleGoogleLogin = async () => {
-    setIsLoading(true);
+    setGoogleLoading(true);
+    setError("");
     
     try {
       await signInWithGoogle();
       navigate("/dashboard");
     } catch (error) {
       // Error is handled in the AuthContext
+      setError("Google sign-in failed. Please try again later.");
     } finally {
-      setIsLoading(false);
+      setGoogleLoading(false);
     }
   };
 
@@ -56,6 +64,13 @@ const Login = () => {
             <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <form onSubmit={handleEmailLogin} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -103,9 +118,9 @@ const Login = () => {
               type="button"
               className="w-full"
               onClick={handleGoogleLogin}
-              disabled={isLoading}
+              disabled={googleLoading}
             >
-              {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
+              {googleLoading ? <Spinner size="sm" className="mr-2" /> : null}
               Google
             </Button>
           </CardContent>
