@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Layout } from "@/components/Layout";
@@ -9,14 +9,44 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Spinner } from "@/components/Spinner";
 import { toast } from "@/hooks/use-toast";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertTriangle } from "lucide-react";
 
 const Register = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleAuthAvailable, setIsGoogleAuthAvailable] = useState(true);
   const { createUser, signInWithGoogle, currentUser } = useAuth();
   const navigate = useNavigate();
+
+  // Check if domain is authorized for Google auth
+  useEffect(() => {
+    // Check if current domain is in the list of authorized domains
+    const checkDomain = async () => {
+      try {
+        const response = await fetch(`https://identitytoolkit.googleapis.com/v1/projects?key=${import.meta.env.VITE_FIREBASE_API_KEY || "AIzaSyCSFXPiU3bbsgWSQppp2bfOXKXktrq7vlo"}`);
+        const data = await response.json();
+        
+        if (data && data.authorizedDomains) {
+          const currentDomain = window.location.hostname;
+          const isAuthorized = data.authorizedDomains.includes(currentDomain);
+          
+          setIsGoogleAuthAvailable(isAuthorized);
+          if (!isAuthorized) {
+            console.log("Current domain is not authorized for Firebase authentication:", currentDomain);
+          }
+        }
+      } catch (error) {
+        console.error("Failed to check domain authorization:", error);
+        // Default to showing the button but with a warning
+        setIsGoogleAuthAvailable(true);
+      }
+    };
+    
+    checkDomain();
+  }, []);
 
   // If user is already logged in, redirect to dashboard
   if (currentUser) {
@@ -115,25 +145,36 @@ const Register = () => {
               </Button>
             </form>
             
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
-              </div>
-            </div>
-            
-            <Button
-              variant="outline"
-              type="button"
-              className="w-full"
-              onClick={handleGoogleSignUp}
-              disabled={isLoading}
-            >
-              {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
-              Google
-            </Button>
+            {!isGoogleAuthAvailable ? (
+              <Alert>
+                <AlertTriangle className="h-4 w-4" />
+                <AlertDescription className="text-xs text-center">
+                  Google authentication is not available on this domain. Please use email signup instead.
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div className="relative">
+                  <div className="absolute inset-0 flex items-center">
+                    <span className="w-full border-t" />
+                  </div>
+                  <div className="relative flex justify-center text-xs uppercase">
+                    <span className="bg-card px-2 text-muted-foreground">Or continue with</span>
+                  </div>
+                </div>
+                
+                <Button
+                  variant="outline"
+                  type="button"
+                  className="w-full"
+                  onClick={handleGoogleSignUp}
+                  disabled={isLoading || !isGoogleAuthAvailable}
+                >
+                  {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
+                  Google
+                </Button>
+              </>
+            )}
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">
