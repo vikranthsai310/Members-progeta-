@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,11 +5,11 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/Spinner";
 import { toast } from "@/hooks/use-toast";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertTriangle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertTriangle, AlertCircle, Info } from "lucide-react";
 
 const Register = () => {
   const [email, setEmail] = useState("");
@@ -18,6 +17,9 @@ const Register = () => {
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isGoogleAuthAvailable, setIsGoogleAuthAvailable] = useState(true);
+  const [passwordStrength, setPasswordStrength] = useState<'weak' | 'medium' | 'strong' | null>(null);
+  const [error, setError] = useState("");
+  
   const { createUser, signInWithGoogle, currentUser } = useAuth();
   const navigate = useNavigate();
 
@@ -52,11 +54,50 @@ const Register = () => {
   if (currentUser) {
     navigate("/dashboard", { replace: true });
   }
+  
+  // Check password strength
+  const checkPasswordStrength = (password: string) => {
+    if (password.length === 0) {
+      setPasswordStrength(null);
+      return;
+    }
+    
+    if (password.length < 6) {
+      setPasswordStrength('weak');
+      return;
+    }
+    
+    const hasUpperCase = /[A-Z]/.test(password);
+    const hasLowerCase = /[a-z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    const hasSpecial = /[^A-Za-z0-9]/.test(password);
+    
+    const count = [hasUpperCase, hasLowerCase, hasNumber, hasSpecial].filter(Boolean).length;
+    
+    if (password.length >= 8 && count >= 3) {
+      setPasswordStrength('strong');
+    } else if (password.length >= 6 && count >= 2) {
+      setPasswordStrength('medium');
+    } else {
+      setPasswordStrength('weak');
+    }
+  };
+
+  // Handle password field change
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setPassword(value);
+    checkPasswordStrength(value);
+  };
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     
+    // Reset any previous errors
+    setError("");
+    
     if (password !== confirmPassword) {
+      setError("Passwords don't match");
       toast({
         title: "Passwords don't match",
         description: "Please make sure both passwords match.",
@@ -66,6 +107,7 @@ const Register = () => {
     }
     
     if (password.length < 6) {
+      setError("Password too short");
       toast({
         title: "Password too short",
         description: "Password must be at least 6 characters long.",
@@ -79,8 +121,8 @@ const Register = () => {
     try {
       await createUser(email, password, "user");
       navigate("/dashboard");
-    } catch (error) {
-      // Error is handled in the AuthContext
+    } catch (error: any) {
+      setError(error.message || "Registration failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -88,12 +130,13 @@ const Register = () => {
 
   const handleGoogleSignUp = async () => {
     setIsLoading(true);
+    setError("");
     
     try {
       await signInWithGoogle();
       navigate("/dashboard");
-    } catch (error) {
-      // Error is handled in the AuthContext
+    } catch (error: any) {
+      setError(error.message || "Google sign in failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -105,8 +148,19 @@ const Register = () => {
         <Card className="w-full max-w-md bg-card shadow-sm slide-in">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Create an account</CardTitle>
+            <CardDescription className="text-center text-muted-foreground">
+              Enter your email and create a password to sign up
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
+            {error && (
+              <Alert variant="destructive">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Error</AlertTitle>
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
             <form onSubmit={handleRegister} className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">Email</Label>
@@ -117,6 +171,7 @@ const Register = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="transition-all duration-200 focus:scale-[1.01] focus:shadow-sm"
                 />
               </div>
               <div className="space-y-2">
@@ -125,9 +180,41 @@ const Register = () => {
                   id="password"
                   type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={handlePasswordChange}
                   required
+                  className="transition-all duration-200 focus:scale-[1.01] focus:shadow-sm"
                 />
+                
+                {passwordStrength && (
+                  <div className="mt-1">
+                    <div className="flex items-center gap-2">
+                      <div className="flex-1 h-2 bg-secondary/30 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full ${
+                            passwordStrength === 'weak' 
+                              ? 'w-1/3 bg-red-500' 
+                              : passwordStrength === 'medium' 
+                                ? 'w-2/3 bg-amber-500' 
+                                : 'w-full bg-green-500'
+                          }`}
+                        />
+                      </div>
+                      <span className={`text-xs ${
+                        passwordStrength === 'weak' 
+                          ? 'text-red-500' 
+                          : passwordStrength === 'medium' 
+                            ? 'text-amber-500' 
+                            : 'text-green-500'
+                      }`}>
+                        {passwordStrength === 'weak' 
+                          ? 'Weak' 
+                          : passwordStrength === 'medium' 
+                            ? 'Medium' 
+                            : 'Strong'}
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="space-y-2">
                 <Label htmlFor="confirmPassword">Confirm Password</Label>
@@ -137,9 +224,15 @@ const Register = () => {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
+                  className="transition-all duration-200 focus:scale-[1.01] focus:shadow-sm"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              
+              <Button 
+                type="submit" 
+                className="w-full transition-all duration-200 hover:scale-[1.01] hover:shadow-md" 
+                disabled={isLoading}
+              >
                 {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
                 Sign Up
               </Button>
@@ -166,7 +259,7 @@ const Register = () => {
                 <Button
                   variant="outline"
                   type="button"
-                  className="w-full"
+                  className="w-full transition-all duration-200 hover:scale-[1.01] hover:border-memberBlue"
                   onClick={handleGoogleSignUp}
                   disabled={isLoading || !isGoogleAuthAvailable}
                 >
@@ -175,6 +268,13 @@ const Register = () => {
                 </Button>
               </>
             )}
+            
+            <Alert variant="outline" className="bg-card/50 border-blue-500/20">
+              <Info className="h-4 w-4 text-blue-500" />
+              <AlertDescription className="text-xs">
+                By registering, you agree to our Terms of Service and Privacy Policy.
+              </AlertDescription>
+            </Alert>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">

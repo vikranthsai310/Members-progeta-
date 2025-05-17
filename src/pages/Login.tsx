@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
@@ -6,10 +5,11 @@ import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Spinner } from "@/components/Spinner";
-import { AlertCircle, AlertTriangle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, AlertTriangle, Info } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { loginUser } from "@/lib/authServices";
 
 const Login = () => {
   const [email, setEmail] = useState("");
@@ -59,11 +59,18 @@ const Login = () => {
     setError("");
     
     try {
-      await login(email, password);
+      // Try using our enhanced loginUser service instead of the context's login
+      const result = await loginUser(email, password);
+      
+      if (!result.success) {
+        throw new Error(result.message);
+      }
+      
+      // If login is successful, navigate to dashboard
       navigate("/dashboard");
-    } catch (error) {
-      // Error is handled in the AuthContext
-      setError("Failed to sign in with email and password");
+    } catch (error: any) {
+      console.error("Login error:", error);
+      setError(error.message || "Failed to sign in with email and password");
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +89,7 @@ const Login = () => {
       if (error.code === 'auth/unauthorized-domain') {
         setError("This domain is not authorized for authentication. Please use email login instead.");
       } else {
-        setError("Google sign-in failed. Please try email login instead.");
+        setError(error.message || "Google sign-in failed. Please try email login instead.");
       }
     } finally {
       setGoogleLoading(false);
@@ -95,11 +102,15 @@ const Login = () => {
         <Card className="w-full max-w-md bg-card shadow-sm slide-in">
           <CardHeader className="space-y-1">
             <CardTitle className="text-2xl font-bold text-center">Sign In</CardTitle>
+            <CardDescription className="text-center text-muted-foreground">
+              Enter your credentials to access your account
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             {error && (
               <Alert variant="destructive">
                 <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Authentication Error</AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
@@ -114,6 +125,7 @@ const Login = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
+                  className="transition-all duration-200 focus:scale-[1.01] focus:shadow-sm"
                 />
               </div>
               <div className="space-y-2">
@@ -129,9 +141,14 @@ const Login = () => {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   required
+                  className="transition-all duration-200 focus:scale-[1.01] focus:shadow-sm"
                 />
               </div>
-              <Button type="submit" className="w-full" disabled={isLoading}>
+              <Button 
+                type="submit" 
+                className="w-full transition-all duration-200 hover:scale-[1.01] hover:shadow-md" 
+                disabled={isLoading}
+              >
                 {isLoading ? <Spinner size="sm" className="mr-2" /> : null}
                 Sign In
               </Button>
@@ -158,7 +175,7 @@ const Login = () => {
                 <Button
                   variant="outline"
                   type="button"
-                  className="w-full"
+                  className="w-full transition-all duration-200 hover:scale-[1.01] hover:border-memberBlue"
                   onClick={handleGoogleLogin}
                   disabled={googleLoading || !isGoogleAuthAvailable}
                 >
@@ -167,6 +184,13 @@ const Login = () => {
                 </Button>
               </>
             )}
+            
+            <Alert>
+              <Info className="h-4 w-4 text-blue-500" />
+              <AlertDescription className="text-xs">
+                By signing in, you agree to our Terms of Service and Privacy Policy.
+              </AlertDescription>
+            </Alert>
           </CardContent>
           <CardFooter className="flex justify-center">
             <p className="text-sm text-muted-foreground">

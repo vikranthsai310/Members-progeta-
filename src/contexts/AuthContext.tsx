@@ -1,4 +1,3 @@
-
 import { createContext, useContext, useEffect, useState, ReactNode } from "react";
 import { 
   User, 
@@ -12,6 +11,7 @@ import {
 import { doc, getDoc, setDoc, serverTimestamp } from "firebase/firestore";
 import { auth, googleProvider, db } from "@/lib/firebase";
 import { toast } from "@/hooks/use-toast";
+import { registerUser } from "@/lib/authServices";
 
 type UserRole = "admin" | "user";
 
@@ -25,11 +25,7 @@ interface UserData {
   createdAt: Date;
   isNewUser?: boolean;
   isPasswordChanged?: boolean;
-  streak: {
-    current: number;
-    best: number;
-    lastCheckIn: Date | null;
-  }
+  streak: {    current: number;    best: number;    lastCheckIn: Date | null;    description?: string;  }
 }
 
 interface AuthContextType {
@@ -40,7 +36,7 @@ interface AuthContextType {
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   createUser: (email: string, password: string, role: UserRole, hobbies?: string[]) => Promise<void>;
-  checkInToday: () => Promise<void>;
+  checkInToday: (description?: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -68,16 +64,32 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
           const userDoc = await getDoc(userDocRef);
           
           if (userDoc.exists()) {
-            const data = userDoc.data() as Omit<UserData, 'uid'>;
+            const data = userDoc.data();
             
             // Update last login time
             await setDoc(userDocRef, { lastLogin: serverTimestamp() }, { merge: true });
             
+            // Convert Firestore timestamps to JavaScript Date objects
+            const lastLogin = data.lastLogin?.toDate?.() || new Date();
+            const createdAt = data.createdAt?.toDate?.() || new Date();
+            const lastCheckIn = data.streak?.lastCheckIn?.toDate?.() || null;
+            
             setUserData({
               uid: user.uid,
-              ...data,
-              lastLogin: new Date(),
-            } as UserData);
+              email: data.email || user.email,
+              displayName: data.displayName || user.displayName,
+              role: data.role || "user",
+              hobbies: data.hobbies || [],
+              lastLogin: lastLogin,
+              createdAt: createdAt,
+              isNewUser: data.isNewUser || false,
+              isPasswordChanged: data.isPasswordChanged || false,
+              streak: {
+                current: data.streak?.current || 0,
+                best: data.streak?.best || 0,
+                lastCheckIn: lastCheckIn
+              }
+            });
           } else {
             // New user from Google Auth
             const newUserData: Omit<UserData, 'uid'> = {
@@ -192,47 +204,34 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const createUser = async (email: string, password: string, role: UserRole, hobbies: string[] = []) => {
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      const user = userCredential.user;
+      const result = await registerUser(email, password);
       
-      const newUserData: Omit<UserData, 'uid'> = {
-        email: user.email,
-        displayName: user.displayName,
-        role,
-        hobbies,
-        lastLogin: new Date(),
-        createdAt: new Date(),
-        isNewUser: true,
-        isPasswordChanged: false, // Manual users need to change password
-        streak: {
-          current: 0,
-          best: 0,
-          lastCheckIn: null
-        }
-      };
+      if (!result.success) {
+        throw new Error(result.message);
+      }
       
-      await setDoc(doc(db, "users", user.uid), {
-        ...newUserData,
-        lastLogin: serverTimestamp(),
-        createdAt: serverTimestamp(),
-      });
+      // If we need to update the user with additional information not handled in registerUser
+      if (hobbies.length > 0) {
+        const userDocRef = doc(db, "users", result.user!.uid);
+        await setDoc(userDocRef, { hobbies }, { merge: true });
+      }
       
       toast({
         title: "Success",
-        description: "User created successfully.",
+        description: "Account created successfully.",
       });
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error creating user:", error);
       toast({
         title: "User Creation Failed",
-        description: "Could not create user. Please try again.",
+        description: error.message || "Could not create user. Please try again.",
         variant: "destructive",
       });
       throw error;
     }
   };
 
-  const checkInToday = async () => {
+  const checkInToday = async (description?: string) => {
     if (!currentUser || !userData) return;
     
     try {
@@ -269,12 +268,13 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         
         const newBestStreak = Math.max(newCurrentStreak, data.streak?.best || 0);
         
-        // Update streak
+        // Update streak with optional description
         await setDoc(userDocRef, {
           streak: {
             current: newCurrentStreak,
             best: newBestStreak,
-            lastCheckIn: today
+            lastCheckIn: today,
+            description: description || null
           }
         }, { merge: true });
         
@@ -285,7 +285,8 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             streak: {
               current: newCurrentStreak,
               best: newBestStreak,
-              lastCheckIn: today
+              lastCheckIn: today,
+              description: description || prev.streak.description
             }
           };
         });
