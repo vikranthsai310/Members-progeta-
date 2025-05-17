@@ -1,12 +1,33 @@
 {
-  "rewrites": [
-    { "source": "/(.*)", "destination": "/index.html" }
-  ],
+  "version": 2,
   "routes": [
-    { "handle": "filesystem" },
-    { "src": "/[^.]+", "dest": "/index.html", "status": 200 }
-  ],
-  "github": {
-    "silent": true
-  }
+    {
+      "src": "^/static/(.*)",
+      "dest": "/static/$1"
+    },
+    {
+      "src": "^/assets/(.*)",
+      "dest": "/assets/$1"
+    },
+    {
+      "src": "^/favicon.ico",
+      "dest": "/favicon.ico"
+    },
+    {
+      "src": "^/manifest.json",
+      "dest": "/manifest.json"
+    },
+    {
+      "src": "^/robots.txt",
+      "dest": "/robots.txt"
+    },
+    {
+      "src": "^/(.*).png",
+      "dest": "/$1.png"
+    },
+    {
+      "src": "^/(.*)",
+      "dest": "/index.html"
+    }
+  ]
 } 
